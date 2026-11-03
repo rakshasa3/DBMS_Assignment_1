@@ -23,7 +23,7 @@ typedef struct PFfpage {
 } PFfpage;
 
 /*************************** Opened File Table **********************/
-#define PF_FTAB_SIZE	20	/* size of open file table */
+#define PF_FTAB_SIZE	20	/* default size of open file table */
 
 /* open file table entry */
 typedef struct PFftab_ele {
@@ -31,6 +31,7 @@ typedef struct PFftab_ele {
 	int unixfd;	/* unix file descriptor*/
 	PFhdr_str hdr;	/* file header */
 	short hdrchanged; /* TRUE if file header has changed */
+	int replacementPolicy; /*Assignment : Add replacement policy to the opened-file table*/
 } PFftab_ele;
 
 /************************** Buffer Page Decls *********************/
@@ -78,3 +79,7 @@ extern PFbufGet();
 extern PFbufUnfix();
 extern PFbufalloc();
 extern PFbufReleaseFile();
+
+/**********************Assignment : Add an internal function declaration ****************************************/
+extern int PF_GetReplacementPolicy();
+extern PFbufUsed();

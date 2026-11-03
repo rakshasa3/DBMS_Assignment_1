@@ -29,12 +29,54 @@
 #define PFE_PAGEINBUF	-17	/* new page to be allocated already in buffer */
 #define PFE_HASHNOTFOUND -18	/* hash table entry not found */
 #define PFE_HASHPAGEEXIST -19	/* page already exist in hash table */
+#define PFE_INVALIDBUFSIZE -20
 
 
 /* page size */
 #define PF_PAGE_SIZE	4096
 
+/* Assignment Implementation */
+/*****************************************/
+/* Buffer replacement policies */
+#define PF_LRU 1
+#define PF_MRU 2
+
+/* Invalid replacement policy */
+#define PFE_INVALIDPOLICY -20
+
+/****************************************/
+
 /* externs from the PF layer */
 extern int PFerrno;		/* error number of last error */
 extern void PF_Init();
 extern void PF_PrintError();
+
+/* Assignment Implementation */
+/*****************************************/
+/* Buffer manager configuration */
+extern int PF_OpenFileWithPolicy();
+extern int PF_SetReplacementPolicy();
+extern int PF_SetBufferSize();
+/* Buffer manager operations */
+extern int PF_MarkDirty();
+/****************************************/
+
+/**************************** I/O Statistics ********************************/
+typedef struct {
+
+    unsigned long logical_reads;
+    unsigned long logical_writes;
+
+    unsigned long physical_reads;
+    unsigned long physical_writes;
+
+    unsigned long cache_hits;
+    unsigned long cache_misses;
+
+} PF_IOStats;
+
+
+extern PF_IOStats PFstats;
+extern void PF_ResetStats();
+extern void PF_GetStats();
+extern void PF_PrintStats();

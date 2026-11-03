@@ -43,13 +43,13 @@ int fd1,fd2;
 
 
 	/* open both files */
-	if ((fd1=PF_OpenFile(FILE1))<0){
+	if ((fd1 = PF_OpenFileWithPolicy(FILE1, PF_LRU))<0){
 		PF_PrintError("open file1\n");
 		exit(1);
 	}
 	printf("opened file1\n");
 
-	if ((fd2=PF_OpenFile(FILE2))<0 ){
+	if ((fd2 = PF_OpenFileWithPolicy(FILE2, PF_MRU))<0 ){
 		PF_PrintError("open file2\n");
 		exit(1);
 	}

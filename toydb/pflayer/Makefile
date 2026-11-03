@@ -3,6 +3,15 @@ SRC= buf.c hash.c pf.c
 OBJ= buf.o hash.o pf.o
 HDR = pftypes.h pf.h 
 
+#To overcome Compilation Errors because of legacy code
+CC = gcc
+
+CFLAGS = -std=gnu89 \
+         -Wno-implicit-function-declaration \
+         -Wno-implicit-int \
+         -Wno-builtin-declaration-mismatch \
+         -fno-builtin
+
 pflayer.o: $(OBJ)
 	ld -r -o pflayer.o $(OBJ)
 
@@ -25,3 +34,8 @@ lint:
 
 install: pflayer.o 
 
+
+%.o: %.c $(HDR)
+	$(CC) $(CFLAGS) -c $< -o $@
+clean:
+	rm -f *.o testpf testhash pflayer.o

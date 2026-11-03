@@ -12,6 +12,8 @@
 #endif
 
 int PFerrno = PFE_OK;	/* last error message */
+/* Global I/O statistics */
+PF_IOStats PFstats = {0, 0, 0, 0, 0, 0};
 
 static PFftab_ele PFftab[PF_FTAB_SIZE]; /* table of opened files */
 
@@ -122,6 +124,8 @@ int error;
 		else	PFerrno = PFE_INCOMPLETEREAD;
 		return(PFerrno);
 	}
+	/* Successful physical disk read */
+        PFstats.physical_reads++;
 
 	return(PFE_OK);
 }
@@ -160,6 +164,8 @@ int error;
 		else	PFerrno = PFE_INCOMPLETEWRITE;
 		return(PFerrno);
 	}
+	/* Successful physical disk write */
+        PFstats.physical_writes++;
 
 	return(PFE_OK);
 
@@ -325,6 +331,10 @@ int fd; /* file descriptor */
 	}
 	/* set file header to be not changed */
 	PFftab[fd].hdrchanged = FALSE;
+	
+	/************************** Assignment : Set LRU as the default policy ************************/
+	/* Default replacement policy */
+        PFftab[fd].replacementPolicy = PF_LRU;
 
 	/* save the file name */
 	if ((PFftab[fd].fname = savestr(fname)) == NULL){
@@ -336,6 +346,78 @@ int fd; /* file descriptor */
 
 	return(fd);
 }
+
+PF_OpenFileWithPolicy(fname, policy)
+char *fname;
+int policy;
+/**************** Assignment : Implement PF_OpenFileWithPolicy() **********************/
+{
+    int fd;
+
+    if (policy != PF_LRU && policy != PF_MRU) {
+        PFerrno = PFE_INVALIDPOLICY;
+        return PFerrno;
+    }
+
+    fd = PF_OpenFile(fname);
+
+    if (fd < 0)
+        return fd;
+
+    PFftab[fd].replacementPolicy = policy;
+
+    return fd;
+}
+
+/********************* Assignment: Implement PF_GetReplacementPolicy() **********************/
+
+PF_GetReplacementPolicy(fd)
+int fd;
+{
+    if (PFinvalidFd(fd))
+        return PF_LRU;
+
+    return PFftab[fd].replacementPolicy;
+}
+/********************* Assignment: Implement PF_SetReplacementPolicy() **********************/
+PF_SetReplacementPolicy(fd, policy)
+int fd;
+int policy;
+{
+    if (PFinvalidFd(fd)) {
+        PFerrno = PFE_FD;
+        return PFerrno;
+    }
+
+    if (policy != PF_LRU && policy != PF_MRU) {
+        PFerrno = PFE_INVALIDPOLICY;
+        return PFerrno;
+    }
+
+    PFftab[fd].replacementPolicy = policy;
+
+    return PFE_OK;
+}
+
+/********************* Assignment: Implement PF_MarkDirty() **********************/
+PF_MarkDirty(fd, pagenum)
+int fd;
+int pagenum;
+{
+    if (PFinvalidFd(fd)) {
+        PFerrno = PFE_FD;
+        return PFerrno;
+    }
+
+    if (PFinvalidPagenum(fd, pagenum)) {
+        PFerrno = PFE_INVALIDPAGE;
+        return PFerrno;
+    }
+
+    return PFbufUsed(fd, pagenum);
+}
+
+/*********************************************************************************/
 
 PF_CloseFile(fd)
 int fd;		/* file descriptor to close */
@@ -721,7 +803,9 @@ static char *PFerrormsg[]={
 "page already unfixed",
 "new page to be allocated already in buffer",
 "hash table entry not found",
-"page already in hash table"
+"page already in hash table",
+"invalid replacement policy",
+"invalid buffer pool size"
 };
 
 void PF_PrintError(s)
@@ -745,4 +829,55 @@ RETURN VALUE: none
 		perror(" ");
 	else	fprintf(stderr,"\n");
 
+}
+
+/************ Stats *****************/
+void PF_ResetStats()
+{
+    PFstats.logical_reads = 0;
+    PFstats.logical_writes = 0;
+
+    PFstats.physical_reads = 0;
+    PFstats.physical_writes = 0;
+
+    PFstats.cache_hits = 0;
+    PFstats.cache_misses = 0;
+}
+
+void PF_GetStats(stats)
+PF_IOStats *stats;
+{
+    *stats = PFstats;
+}
+
+void PF_PrintStats()
+{
+    printf("\n------ PF Statistics ------\n");
+
+    printf("Logical Reads  : %lu\n",
+           PFstats.logical_reads);
+
+    printf("Logical Writes : %lu\n",
+           PFstats.logical_writes);
+
+    printf("Physical Reads : %lu\n",
+           PFstats.physical_reads);
+
+    printf("Physical Writes: %lu\n",
+           PFstats.physical_writes);
+
+    printf("Cache Hits     : %lu\n",
+           PFstats.cache_hits);
+
+    printf("Cache Misses   : %lu\n",
+           PFstats.cache_misses);
+
+    if (PFstats.logical_reads > 0) {
+
+        printf("Cache Hit Ratio: %.2f%%\n",
+            100.0 * PFstats.cache_hits /
+            PFstats.logical_reads);
+    }
+
+    printf("---------------------------\n");
 }

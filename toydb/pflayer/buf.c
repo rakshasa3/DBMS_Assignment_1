@@ -6,6 +6,8 @@ PFbufPrint() */
 #include "pftypes.h"
 
 static int PFnumbpage = 0;	/* # of buffer pages in memory */
+/* Assignment: Runtime configurable buffer pool size */
+static int PFmaxbufs = PF_MAX_BUFS;
 static PFbpage *PFfirstbpage= NULL;	/* ptr to first buffer page, or NULL */
 static PFbpage *PFlastbpage = NULL;	/* ptr to last buffer page, or NULL */
 static PFbpage *PFfreebpage= NULL;	/* list of free buffer pages */
@@ -91,8 +93,13 @@ GLOBAL VARIABLES MODIFIED:
 }
 
 
-static PFbufInternalAlloc(bpage,writefcn)
-PFbpage **bpage;	/* pointer to pointer to buffer bpage to be allocated*/
+/*static PFbufInternalAlloc(bpage,writefcn)
+PFbpage **bpage;
+int (*writefcn)(); */
+/**************** Assignment: Victim Selection Code *************/
+PFbufInternalAlloc(bpage,fd,writefcn)
+PFbpage **bpage;
+int fd;
 int (*writefcn)();
 /****************************************************************************
 SPECIFICATIONS:
@@ -123,67 +130,96 @@ GLOBAL VARIABLES MODIFIED:
 	PFnumbpage, PFfirstbpage, PFlastbpage, PFfreebpage
 *****************************************************************************/
 {
-PFbpage *tbpage;	/* temporary pointer to buffer page */
-int error;		/* error value returned*/
+PFbpage *tbpage;	// temporary pointer to buffer page
+int error;		// error value returned
 
-	/* Set *bpage to the buffer page to be returned */
+	// Set *bpage to the buffer page to be returned
 	if (PFfreebpage != NULL){
-		/* Free list not empty, use the one from the free list. */
+		// Free list not empty, use the one from the free list.
 		*bpage = PFfreebpage;
 		PFfreebpage = (*bpage)->nextpage;
 	}
-	else if (PFnumbpage < PF_MAX_BUFS){
-		/* We have not reached max buffer limit, so
-		malloc() a new one */
+	else if (PFnumbpage < PFmaxbufs){
+		// We have not reached max buffer limit, so malloc() a new one
 		if ((*bpage=(PFbpage *)malloc(sizeof(PFbpage)))==NULL){
-			/* no mem */
+			// no mem
 			*bpage = NULL;
 			PFerrno = PFE_NOMEM;
 			return(PFerrno);
 		}
-		/* increment # of pages allocated */
+		// increment # of pages allocated
 		PFnumbpage++;
 	}
 	else {
-		/* we have reached max buffer limit */
-		/* choose a victim from the buffer*/
+		// we have reached max buffer limit
+		// choose a victim from the buffer
 
-		*bpage = NULL;		/* set initial return value */
+		*bpage = NULL;		// set initial return value
 
-		for (tbpage=PFlastbpage;tbpage!=NULL;tbpage=tbpage->prevpage){
+		/*for (tbpage=PFlastbpage;tbpage!=NULL;tbpage=tbpage->prevpage){
 			if (!tbpage->fixed)
-				/* found a page that can be swapped out */
+				// found a page that can be swapped out
 				break;
-		}
+		}*/
+/*******************************Assignment : Victim Selection Policy Updated *******************************/		
+		
+		int policy;
+
+                policy = PF_GetReplacementPolicy(fd);
+
+                if (policy == PF_LRU) {
+
+                    // LRU: Start searching from the tail
+
+                    for (tbpage = PFlastbpage;
+                         tbpage != NULL;
+                         tbpage = tbpage->prevpage) {
+
+                        if (!tbpage->fixed)
+                            break;
+                    }
+
+                }
+                else if (policy == PF_MRU) {
+
+                    // MRU: Start searching from the head
+
+                    for (tbpage = PFfirstbpage;
+                         tbpage != NULL;
+                         tbpage = tbpage->nextpage) {
+
+                        if (!tbpage->fixed)
+                            break;
+                    }
+
+                }
+/************************************************************************************************************/	            
 
 		if (tbpage == NULL){
-			/* couldn't find a free page */
+			// couldn't find a free page
 			PFerrno = PFE_NOBUF;
 			return(PFerrno);
-		}
+		}	
 
-		/* write out the dirty page */
+		// write out the dirty page 
 		if (tbpage->dirty&&((error=(*writefcn)(tbpage->fd,
 				tbpage->page,&tbpage->fpage))!= PFE_OK))
 			return(error);
 		tbpage->dirty = FALSE;
 
-		/* unlink from hash table */
+		// unlink from hash table
 		if ((error=PFhashDelete(tbpage->fd,tbpage->page))!= PFE_OK)
 			return(error);
 		
-		/* unlink from buffer list */
 		PFbufUnlink(tbpage);
 
 		*bpage = tbpage;
 
 	}
 
-	/* Link the page as the head of the used list */
 	PFbufLinkHead(*bpage);
 	return(PFE_OK);
 }
-
 
 /************************* Interface to the Outside World ****************/
 
@@ -222,17 +258,20 @@ GLOBAL VARIABLES MODIFIED:
 {
 PFbpage *bpage;	/* pointer to buffer */
 int error;
+        /* Every page request is a logical read */
+        PFstats.logical_reads++;
 
-	if ((bpage=PFhashFind(fd,pagenum)) == NULL){
-		/* page not in buffer. */
-		
+        if ((bpage=PFhashFind(fd,pagenum)) == NULL){
+
+                /* Page not present in buffer */
+                PFstats.cache_misses++;
+
 		/* allocate an empty page */
-		if ((error=PFbufInternalAlloc(&bpage,writefcn))!= PFE_OK){
+		if ((error=PFbufInternalAlloc(&bpage,fd,writefcn))!= PFE_OK){
 			/* error */
 			*fpage = NULL;
 			return(error);
 		}
-		
 		/* read the page */
 		if ((error=(*readfcn)(fd,pagenum,&bpage->fpage))!= PFE_OK){
 			/* error reading the page. put buffer back into 
@@ -264,11 +303,34 @@ int error;
 		PFerrno = PFE_PAGEFIXED;
 		return(PFerrno);
 	}
+	else {
 
-	/* Fix the page in the buffer then return*/
-	bpage->fixed = TRUE;
+                        PFstats.cache_hits++;
+                        if (bpage->fixed) {
+                              *fpage = &bpage->fpage;
+                              PFerrno = PFE_PAGEFIXED;
+                              return PFerrno;
+                          }
+                  }
+	// Fix the page in the buffer then return
+	/*bpage->fixed = TRUE;
 	*fpage = &bpage->fpage;
-	return(PFE_OK);
+	return(PFE_OK);*/
+
+/************************ Assignment: Update recency on a cache hit *********************************/
+        /* Update recency: accessed page becomes MRU */
+
+        PFbufUnlink(bpage);
+        PFbufLinkHead(bpage);
+
+        /* Fix the page in the buffer */
+
+        bpage->fixed = TRUE;
+
+        *fpage = &bpage->fpage;
+
+        return(PFE_OK);
+
 }
 
 PFbufUnfix(fd,pagenum,dirty)
@@ -306,6 +368,7 @@ PFbpage *bpage;
 	if (dirty)
 		/* mark this page dirty */
 		bpage->dirty = TRUE;
+		PFstats.logical_writes++;
 	
 	/* unfix the page */
 	bpage->fixed = FALSE;
@@ -348,7 +411,7 @@ int error;
 		return(PFerrno);
 	}
 
-	if ((error=PFbufInternalAlloc(&bpage,writefcn))!= PFE_OK)
+	if ((error=PFbufInternalAlloc(&bpage,fd,writefcn)!= PFE_OK))
 		/* can't get any buffer */
 		return(error);
 	
@@ -494,3 +557,25 @@ PFbpage *bpage;
 				(int)bpage->dirty,(int)&bpage->fpage);
 	}
 }
+
+/*************************** Add the buffer-size setter *********************************/
+int PF_SetBufferSize(size)
+int size;
+{
+    if (size <= 0) {
+        PFerrno = PFE_INVALIDBUFSIZE;
+        return PFerrno;
+    }
+
+    /* Buffer size can only change before allocation starts */
+    if (PFnumbpage != 0) {
+        PFerrno = PFE_NOBUF;
+        return PFerrno;
+    }
+
+    PFmaxbufs = size;
+
+    return PFE_OK;
+}
+/******************************************************************************************/
+

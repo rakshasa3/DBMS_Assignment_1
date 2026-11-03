@@ -32,7 +32,7 @@
 
 
 /* page size */
-#define PF_PAGE_SIZE	1020
+#define PF_PAGE_SIZE	4096
 
 /* externs from the PF layer */
 extern int PFerrno;		/* error number of last error */
