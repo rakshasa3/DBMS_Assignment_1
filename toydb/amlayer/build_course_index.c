@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "am.h"
 #include "course_store.h"
@@ -12,6 +13,8 @@
 #define COURSE_ATTR_TYPE 'c'
 #define COURSE_ATTR_LENGTH COURSE_CODE_LENGTH
 
+PF_IOStats stats;
+
 int main(int argc, char *argv[])
 {
     int total_records = 0;
@@ -19,18 +22,30 @@ int main(int argc, char *argv[])
     int index_fd;
     int rid;
     int error;
+    clock_t start, end;
+    double elapsed;
     CourseRecord record;
 
-    if (argc != 2) {
-        printf("Usage: %s <courses.txt>\n", argv[0]);
+    const char *input_path;
+
+    input_path = (argc >= 2) ? argv[1] : "courses.txt";
+
+    if (argc > 2) {
+        printf("Usage: %s [courses.txt]\n", argv[0]);
         return 1;
     }
 
     PF_Init();
+    PF_ResetStats();
+    start = clock();
+
+    start = clock();
+
+    printf("Approach 1: Post-population construction\n");
 
     printf("Building structured course data file...\n");
 
-    error = CourseStoreBuild(argv[1], "courses.data",
+    error = CourseStoreBuild(input_path, "courses.data",
                              &total_records);
 
     if (error != PFE_OK) {
@@ -47,7 +62,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Remove an old index file before creating a fresh index. */
     remove(COURSE_INDEX_FILE);
 
     printf("Creating B+ tree index...\n");
@@ -74,7 +88,6 @@ int main(int argc, char *argv[])
     printf("Inserting course codes into B+ tree...\n");
 
     for (rid = 0; rid < total_records; rid++) {
-
         error = CourseStoreGet(data_fd, rid, &record);
 
         if (error != PFE_OK) {
@@ -105,11 +118,23 @@ int main(int argc, char *argv[])
 
     PF_CloseFile(index_fd);
     PF_CloseFile(data_fd);
+    PF_GetStats(&stats);
+    
+    printf("\nPF I/O Statistics:\n");
+    printf("Logical reads:   %lu\n", stats.logical_reads);
+    printf("Logical writes:  %lu\n", stats.logical_writes);
+    printf("Physical reads:  %lu\n", stats.physical_reads);
+    printf("Physical writes: %lu\n", stats.physical_writes);
+    printf("Cache hits:      %lu\n", stats.cache_hits);
+    printf("Cache misses:    %lu\n", stats.cache_misses);
+    end = clock();
+    elapsed = (double)(end - start) / CLOCKS_PER_SEC;
 
-    printf("\nIndex construction completed.\n");
+    printf("\nPost-population construction completed.\n");
     printf("Total records indexed: %d\n", total_records);
     printf("Data file: courses.data\n");
     printf("Index file: courses.0\n");
+    printf("Elapsed CPU time: %.6f seconds\n", elapsed);
 
     return 0;
 }

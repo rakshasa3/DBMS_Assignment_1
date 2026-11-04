@@ -48,7 +48,7 @@ static int search_course(int index_fd, int data_fd,
             return -1;
         }
 
-        printf("Found: RID=%d, Course=%s\n",
+        printf("Found: RID=%d, Course=%.8s\n",
                rid, record.course_code);
 
         found++;
@@ -58,7 +58,7 @@ static int search_course(int index_fd, int data_fd,
     return found;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
     int index_fd;
     int data_fd;
@@ -66,8 +66,30 @@ int main(void)
     int rid;
     int count = 0;
     int errors = 0;
-    int seen[10000] = {0};
+    int expected_records = 4268;
+    int i;
+    int *seen;
     CourseRecord record;
+
+    if (argc > 2) {
+        printf("Usage: %s [expected_record_count]\n", argv[0]);
+        return 1;
+    }
+
+    if (argc == 2)
+        expected_records = atoi(argv[1]);
+
+    if (expected_records <= 0) {
+        printf("Invalid expected record count.\n");
+        return 1;
+    }
+
+    seen = (int *)calloc(expected_records, sizeof(int));
+
+    if (seen == NULL) {
+        printf("Could not allocate RID verification array.\n");
+        return 1;
+    }
 
     PF_Init();
 
@@ -75,6 +97,7 @@ int main(void)
 
     if (index_fd < 0) {
         PF_PrintError("Opening course index");
+        free(seen);
         return 1;
     }
 
@@ -83,6 +106,7 @@ int main(void)
     if (data_fd < 0) {
         PF_PrintError("Opening course data");
         PF_CloseFile(index_fd);
+        free(seen);
         return 1;
     }
 
@@ -105,19 +129,25 @@ int main(void)
         printf("Could not open full index scan: %d\n", scan_fd);
         PF_CloseFile(data_fd);
         PF_CloseFile(index_fd);
+        free(seen);
         return 1;
     }
 
     while ((rid = AM_FindNextEntry(scan_fd)) != AME_EOF) {
-
         if (rid < 0) {
             printf("Full scan error: %d\n", rid);
             errors++;
             break;
         }
 
-        if (rid >= 10000 || seen[rid]) {
-            printf("Invalid or duplicate RID: %d\n", rid);
+        if (rid >= expected_records) {
+            printf("RID out of expected range: %d\n", rid);
+            errors++;
+            continue;
+        }
+
+        if (seen[rid]) {
+            printf("Duplicate RID: %d\n", rid);
             errors++;
             continue;
         }
@@ -141,12 +171,15 @@ int main(void)
 
     AM_CloseIndexScan(scan_fd);
 
-    printf("\nTotal records found by index scan: %d\n", count);
-
-    if (count != 4268) {
-        printf("Expected 4268 records.\n");
-        errors++;
+    for (i = 0; i < expected_records; i++) {
+        if (!seen[i]) {
+            printf("Missing RID: %d\n", i);
+            errors++;
+        }
     }
+
+    printf("\nTotal records found by index scan: %d\n", count);
+    printf("Expected records: %d\n", expected_records);
 
     if (errors == 0)
         printf("\nPASS: Course index verification successful.\n");
@@ -155,6 +188,7 @@ int main(void)
 
     PF_CloseFile(data_fd);
     PF_CloseFile(index_fd);
+    free(seen);
 
     return errors == 0 ? 0 : 1;
 }

@@ -18,7 +18,7 @@ amlayer.o: $(AM_OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o a.out
+	rm -f *.o a.out build_course_index verify_course_index build_course_index_incremental
 cleanampf:
 	rm -f ../pflayer/*.o ../amlayer/*.o *.o
 pf:
@@ -40,3 +40,9 @@ verify_course_index.o: verify_course_index.c course_store.h
 
 verify_course_index: verify_course_index.o course_store.o $(AMLAYER) $(PFLAYER)
 	cc $(CFLAGS) verify_course_index.o course_store.o $(AMLAYER) $(PFLAYER) -o verify_course_index
+
+build_course_index_incremental: build_course_index_incremental.o course_store.o $(AMLAYER) $(PFLAYER)
+	$(CC) $(CFLAGS) build_course_index_incremental.o course_store.o $(AMLAYER) $(PFLAYER) -o build_course_index_incremental
+
+build_course_index_incremental.o: build_course_index_incremental.c course_store.h
+	$(CC) $(CFLAGS) -c build_course_index_incremental.c -o build_course_index_incremental.o

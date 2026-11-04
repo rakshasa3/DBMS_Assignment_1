@@ -42,6 +42,170 @@ static int extract_course_code(const char *line,
     return 0;
 }
 
+/*
+ * Open a new course database for incremental writing.
+ */
+int CourseStoreOpenWriter(CourseStoreWriter *writer,
+                          const char *database_path)
+{
+    int error;
+
+    if (writer == NULL || database_path == NULL)
+        return -1;
+
+    writer->file_desc = -1;
+    writer->page_num = -1;
+    writer->record_count = 0;
+    writer->records_in_page = 0;
+    writer->page_buf = NULL;
+
+    /* Remove an old database file, if present. */
+    remove((char *)database_path);
+
+    error = PF_CreateFile((char *)database_path);
+
+    if (error != PFE_OK)
+        return error;
+
+    writer->file_desc = PF_OpenFile((char *)database_path);
+
+    if (writer->file_desc < 0)
+        return writer->file_desc;
+
+    return PFE_OK;
+}
+
+/*
+ * Append one course record to the database.
+ */
+int CourseStoreAppend(CourseStoreWriter *writer,
+                      const char *line,
+                      CourseRecord *record)
+{
+    int error;
+    char code[COURSE_CODE_LENGTH];
+    char clean_line[COURSE_LINE_LENGTH + 32];
+    CoursePageHeader *header;
+    CourseRecord *records;
+
+    if (writer == NULL || line == NULL || record == NULL ||
+        writer->file_desc < 0)
+        return -1;
+
+    /* Make a local copy so the caller's line is not modified. */
+    strncpy(clean_line, line, sizeof(clean_line) - 1);
+    clean_line[sizeof(clean_line) - 1] = '\0';
+    strip_newline(clean_line);
+
+    if (clean_line[0] == '\0')
+        return -1;
+
+    if (strncmp(clean_line, "Database dummy", 14) == 0)
+        return -1;
+
+    if (extract_course_code(clean_line, code) != 0)
+        return -1;
+
+    /*
+     * Allocate a page when there is no current page or the current
+     * page has reached its capacity.
+     */
+    if (writer->page_buf == NULL ||
+        writer->records_in_page >= COURSE_RECORDS_PER_PAGE) {
+
+        /* Release the previous page before allocating another one. */
+        if (writer->page_buf != NULL) {
+            error = PF_UnfixPage(writer->file_desc,
+                                 writer->page_num,
+                                 TRUE);
+
+            if (error != PFE_OK)
+                return error;
+
+            writer->page_buf = NULL;
+        }
+
+        error = PF_AllocPage(writer->file_desc,
+                             &writer->page_num,
+                             &writer->page_buf);
+
+        if (error != PFE_OK)
+            return error;
+
+        memset(writer->page_buf, 0, PF_PAGE_SIZE);
+
+        header = (CoursePageHeader *)writer->page_buf;
+        header->magic = COURSE_PAGE_MAGIC;
+        header->record_count = 0;
+
+        writer->records_in_page = 0;
+    }
+
+    /* Construct the record using the existing on-disk format. */
+    record->rid = writer->record_count;
+
+    memcpy(record->course_code, code, COURSE_CODE_LENGTH);
+
+    memset(record->source_line, 0, COURSE_LINE_LENGTH);
+    strncpy(record->source_line,
+            clean_line,
+            COURSE_LINE_LENGTH - 1);
+
+    /* Store the record immediately after the page header. */
+    header = (CoursePageHeader *)writer->page_buf;
+
+    records = (CourseRecord *)
+        (writer->page_buf + sizeof(CoursePageHeader));
+
+    records[writer->records_in_page] = *record;
+
+    writer->records_in_page++;
+    writer->record_count++;
+
+    header->record_count = writer->records_in_page;
+
+    return PFE_OK;
+}
+
+/*
+ * Flush the final page and close the database.
+ */
+int CourseStoreCloseWriter(CourseStoreWriter *writer)
+{
+    int error;
+    int close_error;
+
+    if (writer == NULL || writer->file_desc < 0)
+        return -1;
+
+    error = PFE_OK;
+
+    if (writer->page_buf != NULL) {
+        error = PF_UnfixPage(writer->file_desc,
+                             writer->page_num,
+                             TRUE);
+
+        writer->page_buf = NULL;
+    }
+
+    close_error = PF_CloseFile(writer->file_desc);
+
+    writer->file_desc = -1;
+    writer->page_num = -1;
+    writer->records_in_page = 0;
+
+    if (error != PFE_OK)
+        return error;
+
+    if (close_error != PFE_OK)
+        return close_error;
+
+    return PFE_OK;
+}
+
+/*
+ * Existing post-population builder.
+ */
 int CourseStoreBuild(const char *input_path,
                      const char *database_path,
                      int *total_records)
@@ -55,7 +219,7 @@ int CourseStoreBuild(const char *input_path,
     char line[COURSE_LINE_LENGTH + 32];
     char code[COURSE_CODE_LENGTH];
     char *page_buf = NULL;
-    CoursePageHeader *header;
+    CoursePageHeader *header = NULL;
     CourseRecord record;
     CourseRecord *records;
 
@@ -66,10 +230,6 @@ int CourseStoreBuild(const char *input_path,
         return -1;
     }
 
-    /*
-     * Remove an old output file if present.
-     * Ensure it is not currently open in another process.
-     */
     remove((char *)database_path);
 
     error = PF_CreateFile((char *)database_path);
@@ -106,6 +266,7 @@ int CourseStoreBuild(const char *input_path,
 
             if (page_count > 0) {
                 error = PF_UnfixPage(fd, page_num, TRUE);
+
                 if (error != PFE_OK)
                     goto cleanup;
             }
@@ -159,6 +320,9 @@ cleanup:
     return error;
 }
 
+/*
+ * Existing record lookup. The RID-to-page mapping is unchanged.
+ */
 int CourseStoreGet(int file_desc, int rid, CourseRecord *record)
 {
     int page_num;
