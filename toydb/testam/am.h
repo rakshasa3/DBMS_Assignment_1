@@ -22,8 +22,30 @@ typedef struct am_intheader
 extern int AM_RootPageNum; /* The page number of the root */
 extern int AM_LeftPageNum; /* The page Number of the leftmost leaf */
 extern int AM_Errno; /* last error in AM layer */
-extern char *calloc();
-extern char *malloc();
+//extern char *calloc();
+//extern char *malloc();
+
+/*********************************Assignement Functions*******************************************/
+/* Public AM functions */
+
+int AM_CreateIndex(char *fileName, int indexNo,
+                   char attrType, int attrLength);
+
+int AM_DestroyIndex(char *fileName, int indexNo);
+
+int AM_InsertEntry(int fileDesc, char attrType,
+                   int attrLength, char *value, int recId);
+
+int AM_DeleteEntry(int fileDesc, char attrType,
+                   int attrLength, char *value, int recId);
+
+int AM_OpenIndexScan(int fileDesc, char attrType,
+                     int attrLength, int op, char *value);
+
+int AM_FindNextEntry(int scanDesc);
+
+int AM_CloseIndexScan(int scanDesc);
+/************************************************************************************************/
 
 # define AM_Check if (errVal != PFE_OK) {AM_Errno = AME_PF; return(AME_PF) ;}
 # define AM_si sizeof(int)

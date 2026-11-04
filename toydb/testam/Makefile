@@ -39,3 +39,18 @@ pf:
 	cd ../pflayer && make pflayer.o && cd ..
 am:
 	cd ../amlayer && make amlayer.o && cd ..
+
+course_store.o: course_store.c course_store.h
+	cc $(CFLAGS) -c course_store.c -o course_store.o
+
+build_course_index.o: build_course_index.c course_store.h
+	cc $(CFLAGS) -c build_course_index.c -o build_course_index.o
+
+build_course_index: build_course_index.o course_store.o $(AMLAYER) $(PFLAYER)
+	cc $(CFLAGS) build_course_index.o course_store.o $(AMLAYER) $(PFLAYER) -o build_course_index
+
+verify_course_index.o: verify_course_index.c course_store.h
+	cc $(CFLAGS) -c verify_course_index.c -o verify_course_index.o
+
+verify_course_index: verify_course_index.o course_store.o $(AMLAYER) $(PFLAYER)
+	cc $(CFLAGS) verify_course_index.o course_store.o $(AMLAYER) $(PFLAYER) -o verify_course_index

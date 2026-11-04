@@ -33,7 +33,7 @@
 
 
 /* page size */
-#define PF_PAGE_SIZE	4096
+#define PF_PAGE_SIZE 4096
 
 /* Assignment Implementation */
 /*****************************************/

@@ -1,34 +1,42 @@
-a.out : am.o amfns.o amsearch.o aminsert.o amstack.o amglobals.o ../pflayer/pflayer.o main.o amscan.o amprint.o
-	cc am.o amfns.o amsearch.o aminsert.o  amstack.o amglobals.o ../pflayer/pflayer.o main.o amscan.o amprint.o 
+CC = gcc
 
-amlayer.o : am.o amfns.o amsearch.o aminsert.o amstack.o amglobals.o amscan.o amprint.o
-	ld -r am.o amfns.o amsearch.o aminsert.o  amstack.o amglobals.o amscan.o amprint.o  -o amlayer.o
+CFLAGS = -std=gnu89 -g -Wall -Wextra -Wno-implicit-function-declaration -Wno-implicit-int -Wno-builtin-declaration-mismatch -fno-builtin -I. -I../pflayer
 
-am.o : am.c am.h pf.h
-	cc -c am.c
+AM_OBJS = am.o amfns.o amsearch.o aminsert.o amstack.o amglobals.o amscan.o amprint.o
 
-amfns.o : amfns.c am.h pf.h
-	cc -c amfns.c
+AMLAYER = ../amlayer/amlayer.o
+PFLAYER = ../pflayer/pflayer.o
 
-amsearch.o : amsearch.c am.h pf.h
-	cc -c amsearch.c
+.PHONY: all clean
 
-aminsert.o : aminsert.c am.h pf.h
-	cc -c aminsert.c
+all: amlayer.o
 
-amscan.o : amscan.c am.h pf.h
-	cc -c amscan.c
+amlayer.o: $(AM_OBJS)
+	$(CC) -r -o $@ $(AM_OBJS)
 
-amstack.o : amstack.c am.h pf.h
-	cc -c amstack.c
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-amglobals.o : amglobals.c am.h
-	cc -c amglobals.c
+clean:
+	rm -f *.o a.out
+cleanampf:
+	rm -f ../pflayer/*.o ../amlayer/*.o *.o
+pf:
+	cd ../pflayer && make pflayer.o && cd ..
+am:
+	cd ../amlayer && make amlayer.o && cd ..
 
-amprint.o : amprint.c am.h pf.h 
-	cc -c amprint.c
-	
-main.o : main.c am.h pf.h 
-	cc -c main.c
+course_store.o: course_store.c course_store.h
+	cc $(CFLAGS) -c course_store.c -o course_store.o
 
+build_course_index.o: build_course_index.c course_store.h
+	cc $(CFLAGS) -c build_course_index.c -o build_course_index.o
 
+build_course_index: build_course_index.o course_store.o $(AMLAYER) $(PFLAYER)
+	cc $(CFLAGS) build_course_index.o course_store.o $(AMLAYER) $(PFLAYER) -o build_course_index
+
+verify_course_index.o: verify_course_index.c course_store.h
+	cc $(CFLAGS) -c verify_course_index.c -o verify_course_index.o
+
+verify_course_index: verify_course_index.o course_store.o $(AMLAYER) $(PFLAYER)
+	cc $(CFLAGS) verify_course_index.o course_store.o $(AMLAYER) $(PFLAYER) -o verify_course_index
