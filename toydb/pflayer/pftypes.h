@@ -47,6 +47,7 @@ typedef struct PFbpage {
 		fixed:1;		/* TRUE if page is fixed in buffer*/
 	int	page;			/* page number of this page */
 	int	fd;			/* file desciptor of this page */
+	unsigned long lastAccess;
 	PFfpage fpage; /* page data from the file */
 } PFbpage;
 

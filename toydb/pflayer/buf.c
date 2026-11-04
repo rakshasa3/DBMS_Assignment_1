@@ -8,6 +8,7 @@ PFbufPrint() */
 static int PFnumbpage = 0;	/* # of buffer pages in memory */
 /* Assignment: Runtime configurable buffer pool size */
 static int PFmaxbufs = PF_MAX_BUFS;
+static unsigned long PFaccessCounter = 0;
 static PFbpage *PFfirstbpage= NULL;	/* ptr to first buffer page, or NULL */
 static PFbpage *PFlastbpage = NULL;	/* ptr to last buffer page, or NULL */
 static PFbpage *PFfreebpage= NULL;	/* list of free buffer pages */
@@ -166,7 +167,7 @@ int error;		// error value returned
 		int policy;
 
                 policy = PF_GetReplacementPolicy(fd);
-
+/*
                 if (policy == PF_LRU) {
 
                     // LRU: Start searching from the tail
@@ -193,6 +194,35 @@ int error;		// error value returned
                     }
 
                 }
+*/
+
+                  PFbpage *candidate;
+                  PFbpage *victim;
+
+                  victim = NULL;
+
+                  for (candidate = PFfirstbpage;
+                       candidate != NULL;
+                       candidate = candidate->nextpage) {
+
+                      if (!candidate->fixed) {
+
+                          if (victim == NULL) {
+                              victim = candidate;
+                          }
+                          else if (policy == PF_LRU &&
+                                   candidate->lastAccess < victim->lastAccess) {
+                              victim = candidate;
+                          }
+                          else if (policy == PF_MRU &&
+                                   candidate->lastAccess > victim->lastAccess) {
+                              victim = candidate;
+                          }
+                      }
+                  }
+                tbpage = victim;
+
+
 /************************************************************************************************************/	            
 
 		if (tbpage == NULL){
@@ -295,6 +325,7 @@ int error;
 		bpage->fd = fd;
 		bpage->page = pagenum;
 		bpage->dirty = FALSE;
+		bpage->lastAccess = ++PFaccessCounter;
 	}
 	else if (bpage->fixed){
 		/* page already in memory, and is fixed, so we can't
@@ -306,6 +337,7 @@ int error;
 	else {
 
                         PFstats.cache_hits++;
+                        bpage->lastAccess = ++PFaccessCounter;
                         if (bpage->fixed) {
                               *fpage = &bpage->fpage;
                               PFerrno = PFE_PAGEFIXED;
@@ -365,10 +397,11 @@ PFbpage *bpage;
 		return(PFerrno);
 	}
 
-	if (dirty)
+	if (dirty){
 		/* mark this page dirty */
 		bpage->dirty = TRUE;
 		PFstats.logical_writes++;
+	}
 	
 	/* unfix the page */
 	bpage->fixed = FALSE;
@@ -429,6 +462,7 @@ int error;
 	bpage->page = pagenum;
 	bpage->fixed = TRUE;
 	bpage->dirty = FALSE;
+	bpage->lastAccess = ++PFaccessCounter;
 
 	*fpage = &bpage->fpage;
 	return(PFE_OK);
@@ -527,6 +561,7 @@ PFbpage *bpage;	/* pointer to the bpage we are looking for */
 
 	/* mark this page dirty */
 	bpage->dirty = TRUE;
+	bpage->lastAccess = ++PFaccessCounter;
 
 	/* make this page head of the list of buffers*/
 	PFbufUnlink(bpage);

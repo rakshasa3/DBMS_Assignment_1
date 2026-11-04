@@ -38,4 +38,12 @@ install: pflayer.o
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 clean:
-	rm -f *.o testpf testhash pflayer.o
+	rm -f *.o testpf testhash pflayer.o benchmark_pf benchmark_pf.o
+	
+PF_OBJS = pf.o buf.o hash.o
+
+benchmark_pf: benchmark_pf.o $(PF_OBJS)
+	$(CC) $(CFLAGS) -o benchmark_pf benchmark_pf.o $(PF_OBJS)
+
+benchmark_pf.o: benchmark_pf.c pf.h pftypes.h
+	$(CC) $(CFLAGS) -c benchmark_pf.c -o benchmark_pf.o
