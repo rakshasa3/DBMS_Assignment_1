@@ -46,3 +46,18 @@ build_course_index_incremental: build_course_index_incremental.o course_store.o 
 
 build_course_index_incremental.o: build_course_index_incremental.c course_store.h
 	$(CC) $(CFLAGS) -c build_course_index_incremental.c -o build_course_index_incremental.o
+
+student_store.o: student_store.c student_store.h
+	$(CC) $(CFLAGS) -c student_store.c -o student_store.o
+
+build_student_index.o: build_student_index.c student_store.h
+	$(CC) $(CFLAGS) -c build_student_index.c -o build_student_index.o
+
+build_student_index: build_student_index.o student_store.o $(AMLAYER) $(PFLAYER)
+	$(CC) $(CFLAGS) build_student_index.o student_store.o $(AMLAYER) $(PFLAYER) -o build_student_index
+
+build_student_index_incremental.o: build_student_index_incremental.c student_store.h
+	$(CC) $(CFLAGS) -c build_student_index_incremental.c -o build_student_index_incremental.o
+
+build_student_index_incremental: build_student_index_incremental.o student_store.o $(AMLAYER) $(PFLAYER)
+	$(CC) $(CFLAGS) build_student_index_incremental.o student_store.o $(AMLAYER) $(PFLAYER) -o build_student_index_incremental
