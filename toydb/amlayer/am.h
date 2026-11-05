@@ -19,6 +19,13 @@ typedef struct am_intheader
 		short attrLength;
 	}	AM_INTHEADER ; /* Header for an internal node */
 
+/* Key-RID tuple for bulk loading */
+typedef struct BulkEntry {
+    char key[256];
+    int pageNum;
+    int slotNum;
+} BulkEntry;
+
 extern int AM_RootPageNum; /* The page number of the root */
 extern int AM_LeftPageNum; /* The page Number of the leftmost leaf */
 extern int AM_Errno; /* last error in AM layer */
@@ -45,6 +52,9 @@ int AM_OpenIndexScan(int fileDesc, char attrType,
 int AM_FindNextEntry(int scanDesc);
 
 int AM_CloseIndexScan(int scanDesc);
+
+/* Bulk load function declaration */
+int AM_BulkLoad(int fileDesc, int attrType, int attrLength, BulkEntry *entries, int numEntries, float fillFactor);
 /************************************************************************************************/
 
 # define AM_Check if (errVal != PFE_OK) {AM_Errno = AME_PF; return(AME_PF) ;}

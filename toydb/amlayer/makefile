@@ -2,7 +2,7 @@ CC = gcc
 
 CFLAGS = -std=gnu89 -g -Wall -Wextra -Wno-implicit-function-declaration -Wno-implicit-int -Wno-builtin-declaration-mismatch -fno-builtin -I. -I../pflayer
 
-AM_OBJS = am.o amfns.o amsearch.o aminsert.o amstack.o amglobals.o amscan.o amprint.o
+AM_OBJS = am.o amfns.o amsearch.o aminsert.o amstack.o amglobals.o amscan.o amprint.o ambulkload.o
 
 AMLAYER = ../amlayer/amlayer.o
 PFLAYER = ../pflayer/pflayer.o
