@@ -1,7 +1,7 @@
 # CSL3050 Database Systems Assignment
 
-*B24CS1122 - Krishna Mishra*
-*B24CS1124 - Sai Akshar Tadimeti*
+- *B24CS1122 - Krishna Mishra*
+- *B24CS1124 - Sai Akshar Tadimeti*
 
 ## GitHub Repository
 
