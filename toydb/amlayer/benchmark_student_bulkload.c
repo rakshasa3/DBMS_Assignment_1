@@ -511,9 +511,11 @@ int main(void)
      */
     free(entries);
 
+/*
     AM_DestroyIndex("idx_student_inc", 1);
     AM_DestroyIndex("idx_student_bulk100", 2);
     AM_DestroyIndex("idx_student_bulk80", 3);
+*/
 
     printf("\nStudent benchmark completed.\n");
 
