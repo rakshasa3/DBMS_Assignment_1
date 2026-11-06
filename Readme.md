@@ -3,6 +3,10 @@
 *B24CS1122 - Krishna Mishra*
 *B24CS1124 - Sai Akshar Tadimeti*
 
+## GitHub Repository
+
+[View the source code on GitHub](https://github.com/rakshasa3/DBMS_Assignment_1)
+
 ## 1. Project Overview
 
 This project extends the ToyDB database system to implement and evaluate three database components:
