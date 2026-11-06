@@ -7,11 +7,13 @@ AMLAYER = amlayer.o
 PFLAYER = ../pflayer/pflayer.o
 
 TARGETS = benchmark_bulkload \
+	  benchmark_student_bulkload \
           build_course_index \
           verify_course_index \
           build_course_index_incremental \
           build_student_index \
-          build_student_index_incremental
+          build_student_index_incremental \
+          
 
 .PHONY: all clean cleanampf pf am
 
@@ -66,3 +68,6 @@ clean:
 
 cleanampf:
 	rm -f ../pflayer/*.o ../amlayer/*.o *.o
+
+benchmark_student_bulkload: benchmark_student_bulkload.o $(AMLAYER) $(PFLAYER)
+	$(CC) $(CFLAGS) $^ -o $@
